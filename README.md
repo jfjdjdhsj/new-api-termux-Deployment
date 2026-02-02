@@ -1,3 +1,9 @@
+自动安装脚本
+```bash
+apt update && apt install -y curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/jfjdjdhsj/new-api-termux-Deployment/refs/heads/main/new-api-termux.sh)"
+```
+**⬇️手动部署教程**
+
 # 📦 Termux + proot-distro 部署 new-api（Ubuntu）完整教程
 
 > 适用于 **Termux / Android / proot-distro Ubuntu**
