@@ -36,7 +36,6 @@ apt_install_one() {
 }
 
 write_tsinghua_sources() {
-  # 如果你不想覆盖 sources.list，就把下面这段整块注释掉即可
   log "写入清华源 /etc/apt/sources.list"
   tee /etc/apt/sources.list > /dev/null <<'EOF'
 deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ questing main universe multiverse
@@ -55,8 +54,6 @@ install_base_deps() {
   apt_install_one ca-certificates
   apt_install_one build-essential
 
-  # 你报错里 pkg-config 依赖 pkgconf 装不上，多半是被前面 node/npm 冲突连坐
-  # 我们先装 pkgconf，再装 pkg-config（逐个装）
   apt_install_one pkgconf
   apt_install_one pkg-config
 }
@@ -75,7 +72,6 @@ ensure_go() {
   fi
 
   warn "apt 安装 golang-go 失败，改用官方 Go tarball（arm64）安装到 /usr/local/go"
-  # 这里用一个相对稳的版本号；你也可以改成你想要的版本
   GO_VER="1.22.11"
   cd /tmp
   rm -f "go${GO_VER}.linux-arm64.tar.gz"
@@ -84,7 +80,6 @@ ensure_go() {
   rm -rf /usr/local/go
   tar -C /usr/local -xzf "go${GO_VER}.linux-arm64.tar.gz"
 
-  # 写入 PATH（不覆盖，只追加）
   if ! grep -q '/usr/local/go/bin' /root/.bashrc 2>/dev/null; then
     echo 'export PATH=/usr/local/go/bin:$PATH' >> /root/.bashrc
   fi
@@ -176,7 +171,6 @@ patch_semi_css() {
     return 0
   fi
 
-  # 已修复就跳过
   if grep -q "/@fs/root/new-api/web/node_modules/@douyinfe/semi-ui/dist/css/semi.min.css" src/index.jsx; then
     skip "semi-ui 路径已修复"
     return 0
@@ -200,7 +194,6 @@ ensure_antd() {
 build_web() {
   cd "${WEB_DIR}"
 
-  # 如果你想“构建成功一次后永远跳过”，就用 dist 标记
   if [ -d "dist" ]; then
     skip "检测到 web/dist 已存在，跳过 npm run build"
     return 0
@@ -210,11 +203,11 @@ build_web() {
   npm run build
 }
 
-start_server() {
-  log "启动后端：go run main.go"
-  cd "${APP_DIR}"
-  warn "建议你后面用 screen/tmux/nohup 做守护运行"
-  go run main.go
+print_done() {
+  log "✅ 安装/编译已完成（未自动启动）"
+  echo -e "\n接下来你手动启动："
+  echo -e "  cd /root/new-api && go run main.go"
+  echo -e "\n（提示：如果你关闭终端就会停，建议后面用 screen/tmux/nohup 守护）"
 }
 
 main() {
@@ -223,7 +216,6 @@ main() {
   write_tsinghua_sources
   install_base_deps
 
-  # 关键：不要再 apt 装 nodejs/npm，直接用 nvm，避免你这次的冲突
   ensure_go
   install_nvm_node
   set_node_memory
@@ -234,7 +226,9 @@ main() {
   patch_semi_css
   ensure_antd
   build_web
-  start_server
+
+  # ✅ 不自动启动，改为提示完成
+  print_done
 }
 
 main "$@"
