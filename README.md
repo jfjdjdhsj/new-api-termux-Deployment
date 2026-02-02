@@ -1,5 +1,6 @@
 # 视频教程
 https://b23.tv/djSE4hl
+
 自动安装脚本
 ```bash
 apt update && apt install -y curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/jfjdjdhsj/new-api-termux-Deployment/refs/heads/main/new-api-termux.sh)"
