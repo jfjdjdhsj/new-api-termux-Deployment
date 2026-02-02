@@ -205,7 +205,9 @@ build_web() {
 
 print_done() {
   log "✅ 安装/编译已完成"
-  echo -e "启动执行  cd /root/new-api && go run main.go"
+  echo -e "\n接下来你手动启动："
+  echo -e "  cd /root/new-api && go run main.go"
+  echo -e "\n（建议后面用 screen/tmux/nohup 守护）"
 }
 
 main() {
@@ -225,6 +227,7 @@ main() {
   ensure_antd
   build_web
 
+  # ✅ 不自动启动，改为提示完成
   print_done
 }
 
