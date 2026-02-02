@@ -90,10 +90,10 @@ go mod download
 ---
 
 十、安装前端依赖
-```
+```bash
 cd /root/new-api/web
 npm install
-```bash
+```
 如果 npm install 报错，使用：
 ```bash
 npm install --legacy-peer-deps
