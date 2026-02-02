@@ -53,7 +53,6 @@ install_base_deps() {
   apt_install_one curl
   apt_install_one ca-certificates
   apt_install_one build-essential
-
   apt_install_one pkgconf
   apt_install_one pkg-config
 }
@@ -71,12 +70,10 @@ ensure_go() {
     return 0
   fi
 
-  warn "apt 安装 golang-go 失败，改用官方 Go tarball（arm64）安装到 /usr/local/go"
+  warn "apt 安装失败，改用官方 Go tarball（arm64）"
   GO_VER="1.22.11"
   cd /tmp
-  rm -f "go${GO_VER}.linux-arm64.tar.gz"
   curl -L "https://go.dev/dl/go${GO_VER}.linux-arm64.tar.gz" -o "go${GO_VER}.linux-arm64.tar.gz"
-
   rm -rf /usr/local/go
   tar -C /usr/local -xzf "go${GO_VER}.linux-arm64.tar.gz"
 
@@ -97,7 +94,6 @@ install_nvm_node() {
     curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VER}/install.sh" | bash
   fi
 
-  # shellcheck disable=SC1091
   . "/root/.nvm/nvm.sh"
 
   if nvm ls "${NODE_VER}" | grep -q "v${NODE_VER}"; then
@@ -129,7 +125,7 @@ clone_or_update_repo() {
   if [ -d "${APP_DIR}/.git" ]; then
     skip "仓库已存在，执行 git pull"
     cd "${APP_DIR}"
-    git pull || warn "git pull 失败（可忽略，脚本继续）"
+    git pull || warn "git pull 失败（可忽略）"
   else
     log "克隆仓库到 ${APP_DIR}"
     rm -rf "${APP_DIR}"
@@ -137,29 +133,56 @@ clone_or_update_repo() {
   fi
 }
 
+# ✅ 关键修改在这里
 go_deps() {
   log "Go 依赖：go mod download（已下载会自动跳过）"
   cd "${APP_DIR}"
-  go mod download
+
+  if go mod download; then
+    log "go mod download 成功"
+    return 0
+  fi
+
+  warn "go mod download 失败，使用【当前目录临时国内源】重试"
+
+  # 只对当前命令生效，不写全局
+  env \
+    GOPROXY="https://goproxy.cn,direct" \
+    GOSUMDB="sum.golang.google.cn" \
+    GOMAXPROCS=1 \
+    go clean -modcache || true
+
+  if env \
+    GOPROXY="https://goproxy.cn,direct" \
+    GOSUMDB="sum.golang.google.cn" \
+    GOMAXPROCS=1 \
+    go mod download; then
+    log "国内源重试成功"
+    return 0
+  fi
+
+  warn "go mod download 仍失败（网络问题），脚本继续"
+  echo "你可稍后手动执行："
+  echo "  cd ${APP_DIR}"
+  echo "  GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn go mod download"
 }
 
 npm_install_web() {
   log "前端依赖：存在 node_modules 就跳过"
   cd "${WEB_DIR}"
 
-  # shellcheck disable=SC1091
   . "/root/.nvm/nvm.sh"
   nvm use "${NODE_VER}" >/dev/null
 
   if [ -d "node_modules" ]; then
-    skip "node_modules 已存在，跳过 npm install"
+    skip "node_modules 已存在"
     return 0
   fi
 
   if npm install; then
     log "npm install 成功"
   else
-    warn "npm install 失败，改用 --legacy-peer-deps"
+    warn "npm install 失败，使用 --legacy-peer-deps"
     npm install --legacy-peer-deps
   fi
 }
@@ -167,7 +190,7 @@ npm_install_web() {
 patch_semi_css() {
   cd "${WEB_DIR}"
   if [ ! -f "src/index.jsx" ]; then
-    warn "未找到 src/index.jsx，跳过 semi-ui patch（可能项目结构变化）"
+    warn "未找到 src/index.jsx，跳过 semi-ui patch"
     return 0
   fi
 
@@ -187,47 +210,39 @@ ensure_antd() {
     skip "antd 已存在"
     return 0
   fi
-  warn "安装 antd@5（仅缺失时安装）"
+  warn "安装 antd@5"
   npm i antd@5 --legacy-peer-deps
 }
 
 build_web() {
   cd "${WEB_DIR}"
-
   if [ -d "dist" ]; then
-    skip "检测到 web/dist 已存在，跳过 npm run build"
+    skip "web/dist 已存在，跳过构建"
     return 0
   fi
-
   log "构建前端：npm run build"
   npm run build
 }
 
 print_done() {
-  log "✅ 安装/编译已完成"
-  echo -e "\n接下来你手动启动："
-  echo -e "  cd /root/new-api && go run main.go"
-  echo -e "\n（建议后面用 screen/tmux/nohup 守护）"
+  log "✅ 安装/编译完成"
+  echo -e "\n启动方式："
+  echo "  cd /root/new-api && go run main.go"
 }
 
 main() {
   need_root
-
   write_tsinghua_sources
   install_base_deps
-
   ensure_go
   install_nvm_node
   set_node_memory
-
   clone_or_update_repo
   go_deps
   npm_install_web
   patch_semi_css
   ensure_antd
   build_web
-
-  # ✅ 不自动启动，改为提示完成
   print_done
 }
 
